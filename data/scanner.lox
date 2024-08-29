@@ -1,0 +1,4 @@
+// this is a comment
+(( )){} // grouping and block
+!-+*/=<> <= == / // unary operators
+"string" // string
