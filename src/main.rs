@@ -1,151 +1,61 @@
 use anyhow::Result;
+use rlox::Scanner;
 use std::{
     env::args,
-    io::{BufRead, Write},
+    io::{stdout, BufRead, Write},
 };
-mod scanner;
-mod tokens;
-
-use scanner::Scanner;
-
-fn main() -> Result<()> {
+fn main() {
     let args: Vec<String> = args().collect();
-    if args.len() > 2 {
-        println!("Usage: rlox [script]");
-        return Ok(());
+
+    match args.len() {
+        1 => run_prompt(),
+        2 => run_file(&args[1]).expect("Error running file"),
+        _ => {
+            eprintln!("Usage: lox-ast [script]");
+            std::process::exit(64);
+        }
     }
-    if args.len() == 2 {
-        let script = &args[1];
-        println!("Running file: {script}");
-        run_file(script);
-    } else {
-        println!("Running prompt");
-        run_prompt()?;
+}
+
+fn run_file(path: &str) -> Result<()> {
+    let buf = std::fs::read_to_string(path)?;
+    if run(&buf).is_err() {
+        std::process::exit(65);
     }
     Ok(())
 }
 
-fn run_file(script: &str) {
-    let source = std::fs::read_to_string(script).expect("Failed to read file");
-    run(&source);
-}
+fn run_prompt() {
+    let stdin = std::io::stdin();
+    let stdout = stdout();
+    println!("Welcome to Lox!");
+    println!("Press Ctrl-C to exit.");
+    println!("Type in your code below:");
+    println!();
 
-fn run_prompt() -> Result<()> {
-    println!("Welcome to the Lox REPL");
-    println!("Type 'exit' to quit");
-    loop {
+    print!("> ");
+    stdout.lock().flush().unwrap();
+    for line in stdin.lock().lines() {
+        if let Ok(line) = line {
+            if line.trim() == "exit" {
+                break;
+            }
+            if run(&line).is_err() {
+                //  Ignore: error already printed
+            }
+        } else {
+            break;
+        }
         print!("> ");
-        std::io::stdout().flush()?;
-        let Some(line) = std::io::stdin().lock().lines().next() else {
-            break;
-        };
-        let line = line?;
-        if line == "exit" {
-            break;
-        }
-        let scanner = Scanner::new(&line);
-
-        for token in scanner {
-            println!("{token:#?}");
-        }
+        stdout.lock().flush().unwrap();
     }
-    Ok(())
 }
 
-fn run(source: &str) {
-    println!("==== Source =====");
-    println!("{source}");
-
-    println!("==== Tokens =====");
-
-    let scanner = Scanner::new(source);
-
-    for token in scanner {
+fn run(source: &str) -> Result<()> {
+    let mut scanner = Scanner::new(source);
+    let tokens = scanner.scan_tokens()?;
+    for token in tokens {
         println!("{token:#?}");
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use tokens::Token;
-
-    use super::*;
-
-    #[test]
-    fn test_simple_lexer() {
-        let source = "> << / >= == <= // comment\n // comment\n, . ! !=\n=+*-\n;\n";
-        let scanner = Scanner::new(source);
-        let tokens: Vec<Token> = scanner.collect();
-        assert_eq!(
-            tokens,
-            vec![
-                Token::new(tokens::TokenType::Greater, ">", 1),
-                Token::new(tokens::TokenType::Less, "<", 1),
-                Token::new(tokens::TokenType::Less, "<", 1),
-                Token::new(tokens::TokenType::Slash, "/", 1),
-                Token::new(tokens::TokenType::GreaterEqual, ">=", 1),
-                Token::new(tokens::TokenType::EqualEqual, "==", 1),
-                Token::new(tokens::TokenType::LessEqual, "<=", 1),
-                Token::new(tokens::TokenType::Comma, ",", 3),
-                Token::new(tokens::TokenType::Dot, ".", 3),
-                Token::new(tokens::TokenType::Bang, "!", 3),
-                Token::new(tokens::TokenType::BangEqual, "!=", 3),
-                Token::new(tokens::TokenType::Equal, "=", 4),
-                Token::new(tokens::TokenType::Plus, "+", 4),
-                Token::new(tokens::TokenType::Star, "*", 4),
-                Token::new(tokens::TokenType::Minus, "-", 4),
-                Token::new(tokens::TokenType::Semicolon, ";", 5),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_simple_lexer_with_string() {
-        let source = "\n\n\n\n\n\n {}\n ()";
-        let scanner = Scanner::new(source);
-        let tokens: Vec<Token> = scanner.collect();
-        assert_eq!(
-            tokens,
-            vec![
-                Token::new(tokens::TokenType::LeftBrace, "{", 7),
-                Token::new(tokens::TokenType::RightBrace, "}", 7),
-                Token::new(tokens::TokenType::LeftParen, "(", 8),
-                Token::new(tokens::TokenType::RightParen, ")", 8),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_string_literal() {
-        let source = "\"Hello, World!\"";
-        let scanner = Scanner::new(source);
-        let tokens: Vec<Token> = scanner.collect();
-        assert_eq!(
-            tokens,
-            vec![Token::new(
-                tokens::TokenType::String("Hello, World!"),
-                "Hello, World!",
-                1
-            )]
-        );
-    }
-
-    #[test]
-    fn test_string_literal_with_newline() {
-        let source = " > \"Hello, \nWorld!\" < ";
-        let scanner = Scanner::new(source);
-        let tokens: Vec<Token> = scanner.collect();
-        assert_eq!(
-            tokens,
-            vec![
-                Token::new(tokens::TokenType::Greater, ">", 1),
-                Token::new(
-                    tokens::TokenType::String("Hello, \nWorld!"),
-                    "Hello, \nWorld!",
-                    2
-                ),
-                Token::new(tokens::TokenType::Less, "<", 2),
-            ]
-        );
-    }
+    Ok(())
 }
