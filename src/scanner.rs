@@ -95,6 +95,21 @@ impl Scanner {
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+                } else if self.match_char('*') {
+                    loop {
+                        if self.is_at_end() {
+                            return Err(LoxError::error(self.line, "Unterminated block comment."));
+                        }
+                        if self.peek() == '*' && self.peek_next() == '/' {
+                            self.advance();
+                            self.advance();
+                            break;
+                        }
+                        if self.peek() == '\n' {
+                            self.line += 1;
+                        }
+                        self.advance();
+                    }
                 } else {
                     self.add_token(TokenType::Slash);
                 }

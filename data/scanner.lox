@@ -1,3 +1,9 @@
 // this is a comment
 (( )){} // grouping and block
 !-+*/=<> <= == / // unary operators
+/* this is a block comment */
+// this is a comment
+/*
+this is a block comment
+*/
+-*+// // binary operators
